@@ -96,10 +96,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Format the message content
         const formattedContent = formatMessageContent(content);
         
+        // Get the AI provider from the page title
+        const aiProvider = document.title.split(' ')[0];
+        
         messageContainer.innerHTML = `
             <div class="message-bubble">
                 <div class="message-header">
-                    <strong>${role === 'user' ? 'You' : 'ChatGPT'}</strong>
+                    <strong>${role === 'user' ? 'You' : aiProvider}</strong>
                 </div>
                 <div class="message-content">${formattedContent}</div>
             </div>
@@ -140,11 +143,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (response.ok) {
                     // Clear chat UI
+                    // Get the AI provider from the page title
+                    const aiProvider = document.title.split(' ')[0];
+                    
                     chatHistory.innerHTML = `
                         <div class="welcome-message text-center">
                             <div class="p-4">
                                 <i class="fas fa-comment-dots fs-1 mb-3 text-info"></i>
-                                <h4>Welcome to ChatGPT Chatbot!</h4>
+                                <h4>Welcome to ${aiProvider} Chatbot!</h4>
                                 <p class="text-muted">Start a conversation by typing a message below.</p>
                             </div>
                         </div>

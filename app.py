@@ -2,7 +2,7 @@ import os
 import logging
 import json
 from flask import Flask, render_template, request, jsonify, session
-import openai
+from anthropic import Anthropic
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -12,12 +12,13 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
 
-# Initialize OpenAI API with key from environment
-openai_api_key = os.environ.get("OPENAI_API_KEY")
-if not openai_api_key:
-    logger.warning("OpenAI API key not found in environment variables!")
+# Initialize Anthropic API with key from environment
+anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
+if not anthropic_api_key:
+    logger.warning("Anthropic API key not found in environment variables!")
 
-client = openai.OpenAI(api_key=openai_api_key)
+# Initialize Anthropic client
+client = Anthropic(api_key=anthropic_api_key)
 
 @app.route('/')
 def index():
@@ -25,11 +26,11 @@ def index():
     # Initialize session message history if it doesn't exist
     if 'messages' not in session:
         session['messages'] = []
-    return render_template('index.html', messages=session['messages'])
+    return render_template('index.html', messages=session['messages'], ai_provider="Claude")
 
 @app.route('/send_message', methods=['POST'])
 def send_message():
-    """Process user message and get response from ChatGPT API"""
+    """Process user message and get response from Claude API"""
     try:
         data = request.json
         user_message = data.get('message', '').strip()
@@ -47,22 +48,31 @@ def send_message():
             'content': user_message
         })
         
-        # Create messages array for API call, including conversation history
-        messages = [
-            {"role": "system", "content": "You are a helpful assistant. Provide concise, accurate, and friendly responses."}
-        ]
-        messages.extend(session['messages'])
+        # Format messages for Anthropic
+        messages = []
+        # Add system message if it's the first message
+        if len(session['messages']) <= 1:
+            messages.append({
+                "role": "system", 
+                "content": "You are a helpful assistant. Provide concise, accurate, and friendly responses."
+            })
+            
+        # Add conversation history
+        for msg in session['messages']:
+            messages.append(msg)
         
-        # Call OpenAI API
-        logger.debug(f"Sending request to OpenAI with messages: {messages}")
+        # Call Anthropic API
+        logger.debug(f"Sending request to Anthropic with messages: {messages}")
         
-        response = client.chat.completions.create(
-            model="gpt-4o",  # the newest OpenAI model is "gpt-4o" which was released May 13, 2024.
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",  # the newest Anthropic model is "claude-3-5-sonnet-20241022" which was released October 22, 2024
+            max_tokens=1000,
+            temperature=0.7,
             messages=messages
         )
         
         # Extract response content
-        assistant_message = response.choices[0].message.content
+        assistant_message = response.content[0].text
         
         # Add assistant response to history
         session['messages'].append({
@@ -77,12 +87,9 @@ def send_message():
             'message': assistant_message
         })
     
-    except openai.APIError as e:
-        logger.error(f"OpenAI API Error: {str(e)}")
-        return jsonify({'error': f"OpenAI API Error: {str(e)}"}), 500
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        return jsonify({'error': f"An unexpected error occurred: {str(e)}"}), 500
+        logger.error(f"API Error: {str(e)}")
+        return jsonify({'error': f"An error occurred: {str(e)}"}), 500
 
 @app.route('/clear_chat', methods=['POST'])
 def clear_chat():
