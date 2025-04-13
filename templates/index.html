@@ -18,8 +18,8 @@
                 <div class="card shadow">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h3 class="mb-0">
-                            <i class="fas fa-robot me-2"></i>
-                            {{ ai_provider }} Chatbot
+                            <i class="fas fa-brain me-2 text-purple"></i>
+                            <span class="fw-bold">{{ ai_provider }}</span>
                         </h3>
                         <button id="clearChat" class="btn btn-outline-danger btn-sm">
                             <i class="fas fa-trash me-1"></i>
@@ -43,8 +43,9 @@
                             {% else %}
                                 <div class="welcome-message text-center">
                                     <div class="p-4">
-                                        <i class="fas fa-comment-dots fs-1 mb-3 text-info"></i>
-                                        <h4>Welcome to {{ ai_provider }} Chatbot!</h4>
+                                        <i class="fas fa-brain fs-1 mb-3"></i>
+                                        <h4>Welcome to {{ ai_provider }}!</h4>
+                                        <p class="text-muted">I'm powered by AI to help answer your questions.</p>
                                         <p class="text-muted">Start a conversation by typing a message below.</p>
                                     </div>
                                 </div>

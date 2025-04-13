@@ -26,7 +26,7 @@ def index():
     # Initialize session message history if it doesn't exist
     if 'messages' not in session:
         session['messages'] = []
-    return render_template('index.html', messages=session['messages'], ai_provider="Gemini")
+    return render_template('index.html', messages=session['messages'], ai_provider="Hanumant Jadhav Bot")
 
 @app.route('/send_message', methods=['POST'])
 def send_message():
