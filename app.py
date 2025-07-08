@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = "dev-secret-key"  # Replace with a secure key in production
 
-# Set your Gemini API key
-gemini_api_key = "AIzaSyBQmYo4RnWabu-x7XAz6e-fgJTIqRFpEo8"
+# Set your Gemini API key securely from environment variable
+gemini_api_key = os.environ.get("GEMINI_API_KEY")
 genai.configure(api_key=gemini_api_key)
 
 @app.route('/')
@@ -91,5 +91,6 @@ def clear_chat():
     session.modified = True
     return jsonify({'status': 'success'})
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+# Removed the Flask dev server block to avoid conflicts on Render
+# if __name__ == '__main__':
+#     app.run(host='0.0.0.0', port=
