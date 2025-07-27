@@ -6,3 +6,6 @@ openai>=1.73.0
 psycopg2-binary>=2.9.10
 anthropic>=0.49.0
 email-validator>=2.2.0
+werkzeug>=3.0.0
+# sqlite3 is part of the Python standard library, no need to list
+# Set FLASK_SECRET_KEY and GEMINI_API_KEY as environment variables in production

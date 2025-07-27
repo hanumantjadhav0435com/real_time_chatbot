@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - Chatbot</title>
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow">
+                    <div class="card-header text-center">
+                        <h3><i class="fas fa-user-plus me-2"></i>Sign Up</h3>
+                    </div>
+                    <div class="card-body">
+                        <form id="signupForm">
+                            <div class="mb-3">
+                                <label for="full_name" class="form-label">Full Name</label>
+                                <input type="text" class="form-control" id="full_name" required autofocus>
+                            </div>
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="username" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="password" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="confirm_password" class="form-label">Confirm Password</label>
+                                <input type="password" class="form-control" id="confirm_password" required>
+                            </div>
+                            <div id="signupError" class="alert alert-danger d-none" role="alert"></div>
+                            <button type="submit" class="btn btn-primary w-100">Sign Up</button>
+                        </form>
+                        <div class="mt-3 text-center">
+                            <a href="/login">Already have an account? Login</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    document.getElementById('signupForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const full_name = document.getElementById('full_name').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        const confirm_password = document.getElementById('confirm_password').value;
+        const errorDiv = document.getElementById('signupError');
+        errorDiv.classList.add('d-none');
+        // Frontend validation
+        if (!full_name || !email || !username || !password || !confirm_password) {
+            errorDiv.textContent = 'All fields are required.';
+            errorDiv.classList.remove('d-none');
+            return;
+        }
+        if (!/^\S+@\S+\.\S+$/.test(email)) {
+            errorDiv.textContent = 'Invalid email address.';
+            errorDiv.classList.remove('d-none');
+            return;
+        }
+        if (password !== confirm_password) {
+            errorDiv.textContent = 'Passwords do not match.';
+            errorDiv.classList.remove('d-none');
+            return;
+        }
+        try {
+            const res = await fetch('/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ full_name, email, username, password, confirm_password })
+            });
+            const data = await res.json();
+            if (data.success) {
+                window.location.href = '/login';
+            } else {
+                errorDiv.textContent = data.error || 'Signup failed.';
+                errorDiv.classList.remove('d-none');
+            }
+        } catch (err) {
+            errorDiv.textContent = 'An error occurred. Please try again.';
+            errorDiv.classList.remove('d-none');
+        }
+    });
+    </script>
+</body>
+</html> 

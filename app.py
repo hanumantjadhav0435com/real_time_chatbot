@@ -1,7 +1,10 @@
 import os
 import logging
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import google.generativeai as genai
+import sqlite3
+from werkzeug.security import generate_password_hash, check_password_hash
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -9,15 +12,107 @@ logger = logging.getLogger(__name__)
 
 # Initialize Flask application
 app = Flask(__name__)
-app.secret_key = "dev-secret-key"  # Replace with a secure key in production
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")  # Use env var in production
 
 # Set your Gemini API key securely from environment variable
 gemini_api_key = os.environ.get("GEMINI_API_KEY")
 genai.configure(api_key=gemini_api_key)
 
+# Demo user credentials (replace with DB or secure store in production)
+VALID_USERNAME = "user"
+VALID_PASSWORD = "password"
+
+DB_PATH = 'users.db'
+
+def init_db():
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute('DROP TABLE IF EXISTS users')
+        c.execute('''CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            full_name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL
+        )''')
+        conn.commit()
+
+init_db()
+
+def get_user(username):
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute('SELECT id, username, password_hash, full_name, email FROM users WHERE username = ?', (username,))
+        return c.fetchone()
+
+def create_user(username, password, full_name, email):
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            c = conn.cursor()
+            c.execute('INSERT INTO users (username, password_hash, full_name, email) VALUES (?, ?, ?, ?)',
+                      (username, generate_password_hash(password), full_name, email))
+            conn.commit()
+            return True, None
+    except sqlite3.IntegrityError as e:
+        if 'username' in str(e):
+            return False, 'Username already exists.'
+        if 'email' in str(e):
+            return False, 'Email already exists.'
+        return False, 'Database error.'
+
+def is_valid_email(email):
+    return re.match(r"[^@]+@[^@]+\.[^@]+", email)
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'GET':
+        return render_template('signup.html')
+    data = request.get_json() or request.form
+    full_name = data.get('full_name', '').strip()
+    email = data.get('email', '').strip()
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    confirm_password = data.get('confirm_password', '').strip()
+    if not all([full_name, email, username, password, confirm_password]):
+        return jsonify({'success': False, 'error': 'All fields are required.'}), 400
+    if not is_valid_email(email):
+        return jsonify({'success': False, 'error': 'Invalid email address.'}), 400
+    if password != confirm_password:
+        return jsonify({'success': False, 'error': 'Passwords do not match.'}), 400
+    success, error = create_user(username, password, full_name, email)
+    if success:
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': error}), 400
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'GET':
+        return render_template('login.html')
+    data = request.get_json() or request.form
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+    user = get_user(username)
+    if user and check_password_hash(user[2], password):
+        session['user'] = username
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.pop('user', None)
+    session.pop('messages', None)
+    return jsonify({'success': True})
+
 @app.route('/')
-def index():
-    """Render the main chat interface"""
+def home():
+    if 'user' in session:
+        return redirect(url_for('chat'))
+    return render_template('home.html')
+
+@app.route('/chat')
+def chat():
+    if 'user' not in session:
+        return redirect(url_for('login'))
     if 'messages' not in session:
         session['messages'] = []
     return render_template('index.html', messages=session['messages'], ai_provider="Hanumant Jadhav Bot")

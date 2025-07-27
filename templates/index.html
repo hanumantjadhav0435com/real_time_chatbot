@@ -21,10 +21,16 @@
                             <i class="fas fa-brain me-2 text-purple"></i>
                             <span class="fw-bold">{{ ai_provider }}</span>
                         </h3>
-                        <button id="clearChat" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-trash me-1"></i>
-                            Clear Chat
-                        </button>
+                        <div>
+                            <button id="clearChat" class="btn btn-outline-danger btn-sm me-2">
+                                <i class="fas fa-trash me-1"></i>
+                                Clear Chat
+                            </button>
+                            <button id="logoutBtn" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-sign-out-alt me-1"></i>
+                                Logout
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div id="chatHistory" class="mb-4">
@@ -74,5 +80,22 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+    <script>
+document.getElementById('logoutBtn').addEventListener('click', async function() {
+    await fetch('/logout', { method: 'POST' });
+    window.location.href = '/login';
+});
+// Global fetch wrapper to redirect to login on 401
+(function() {
+    const origFetch = window.fetch;
+    window.fetch = async function() {
+        const response = await origFetch.apply(this, arguments);
+        if (response.status === 401) {
+            window.location.href = '/login';
+        }
+        return response;
+    };
+})();
+</script>
 </body>
 </html>
