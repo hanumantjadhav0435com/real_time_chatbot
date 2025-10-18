@@ -1,37 +1,33 @@
 import os
 import logging
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-from google import genai   # ✅ Correct new import
 import sqlite3
-from werkzeug.security import generate_password_hash, check_password_hash
 import re
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from werkzeug.security import generate_password_hash, check_password_hash
+from google import genai
 
-# -------------------------------------------------------------
-# Logging Configuration
-# -------------------------------------------------------------
+# -------------------------------------
+# Configuration
+# -------------------------------------
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# -------------------------------------------------------------
-# Flask App Configuration
-# -------------------------------------------------------------
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
 
-# -------------------------------------------------------------
-# Gemini API Configuration
-# -------------------------------------------------------------
+# ✅ Gemini API setup
 gemini_api_key = os.environ.get("GEMINI_API_KEY")
 if not gemini_api_key:
-    raise ValueError("❌ GEMINI_API_KEY environment variable is not set.")
+    raise ValueError("❌ GEMINI_API_KEY is not set in environment variables.")
 
-client = genai.Client(api_key=gemini_api_key)  # ✅ Use the new Client class
+client = genai.Client(api_key=gemini_api_key)
 
-# -------------------------------------------------------------
-# Database Setup
-# -------------------------------------------------------------
 DB_PATH = 'users.db'
 
+
+# -------------------------------------
+# Database setup
+# -------------------------------------
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
@@ -45,16 +41,16 @@ def init_db():
         )''')
         conn.commit()
 
+
 init_db()
 
-# -------------------------------------------------------------
-# Helper Functions
-# -------------------------------------------------------------
+
 def get_user(username):
     with sqlite3.connect(DB_PATH) as conn:
         c = conn.cursor()
         c.execute('SELECT id, username, password_hash, full_name, email FROM users WHERE username = ?', (username,))
         return c.fetchone()
+
 
 def create_user(username, password, full_name, email):
     try:
@@ -71,16 +67,19 @@ def create_user(username, password, full_name, email):
             return False, 'Email already exists.'
         return False, 'Database error.'
 
+
 def is_valid_email(email):
     return re.match(r"[^@]+@[^@]+\.[^@]+", email)
 
-# -------------------------------------------------------------
+
+# -------------------------------------
 # Routes
-# -------------------------------------------------------------
+# -------------------------------------
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'GET':
         return render_template('signup.html')
+
     data = request.get_json() or request.form
     full_name = data.get('full_name', '').strip()
     email = data.get('email', '').strip()
@@ -100,35 +99,37 @@ def signup():
         return jsonify({'success': True})
     return jsonify({'success': False, 'error': error}), 400
 
-# -------------------------------------------------------------
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
         return render_template('login.html')
+
     data = request.get_json() or request.form
     username = data.get('username', '').strip()
     password = data.get('password', '').strip()
     user = get_user(username)
+
     if user and check_password_hash(user[2], password):
         session['user'] = username
         return jsonify({'success': True})
     return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
 
-# -------------------------------------------------------------
+
 @app.route('/logout', methods=['POST'])
 def logout():
     session.pop('user', None)
     session.pop('messages', None)
     return jsonify({'success': True})
 
-# -------------------------------------------------------------
+
 @app.route('/')
 def home():
     if 'user' in session:
         return redirect(url_for('chat'))
     return render_template('home.html')
 
-# -------------------------------------------------------------
+
 @app.route('/chat')
 def chat():
     if 'user' not in session:
@@ -137,7 +138,10 @@ def chat():
         session['messages'] = []
     return render_template('index.html', messages=session['messages'], ai_provider="Hanumant Jadhav Bot")
 
-# -------------------------------------------------------------
+
+# -------------------------------------
+# Chat route with Gemini 1.5 Flash
+# -------------------------------------
 @app.route('/send_message', methods=['POST'])
 def send_message():
     """Process user message and get response from Gemini 1.5 Flash"""
@@ -151,34 +155,29 @@ def send_message():
         if 'messages' not in session:
             session['messages'] = []
 
-        # Add user message
         session['messages'].append({'role': 'user', 'content': user_message})
 
-        # Convert to Gemini format
+        # Convert chat history to Gemini format
         gemini_messages = []
         for msg in session['messages']:
-            role = msg['role']
-            content = msg['content']
             gemini_messages.append({
-                "role": "user" if role == "user" else "model",
-                "parts": [{"text": content}]
+                "role": "user" if msg['role'] == "user" else "model",
+                "parts": [{"text": msg['content']}]
             })
 
         logger.debug(f"Sending messages to Gemini API: {gemini_messages}")
 
-        # ✅ Using the free Gemini 1.5 Flash model
+        # ✅ Correct generate_content usage for latest SDK
         response = client.models.generate_content(
             model="models/gemini-1.5-flash",
             contents=gemini_messages,
-            generation_config={
-                "temperature": 0.7,
-                "max_output_tokens": 1000,
-            },
+            temperature=0.7,
+            max_output_tokens=1000,
         )
 
+        # Extract text safely
         assistant_message = response.candidates[0].content.parts[0].text
 
-        # Save assistant message
         session['messages'].append({'role': 'assistant', 'content': assistant_message})
         session.modified = True
 
@@ -188,16 +187,16 @@ def send_message():
         logger.error(f"API Error: {str(e)}")
         return jsonify({'error': f"An error occurred: {str(e)}"}), 500
 
-# -------------------------------------------------------------
+
 @app.route('/clear_chat', methods=['POST'])
 def clear_chat():
-    """Clear chat history"""
     session['messages'] = []
     session.modified = True
     return jsonify({'status': 'success'})
 
-# -------------------------------------------------------------
-# Flask app runs from your deployment environment (Render, etc.)
-# -------------------------------------------------------------
-# if __name__ == '__main__':
-#     app.run(host='0.0.0.0', port=5000)
+
+# -------------------------------------
+# Run the Flask app
+# -------------------------------------
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
